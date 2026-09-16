@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Facility Reservation &amp; Approval System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#1c2430;
+    --slate:#4a5568;
+    --line:#dfe3ea;
+    --paper:#f7f8fa;
+    --white:#ffffff;
+    --accent:#2f5d9f;
+    --accent-dark:#1f3f6e;
+    --ok:#2e7d4f;
+    --warn:#b8860b;
+    --danger:#b3352f;
+    --pending:#8a6d1f;
+    --radius:6px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    font-size:15px; line-height:1.5;
+  }
+  header.topbar{
+    background:var(--ink); color:#fff; padding:14px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  header.topbar .brand{font-weight:600; font-size:17px; letter-spacing:.2px;}
+  header.topbar .who{font-size:13px; color:#c8d0dc; display:flex; align-items:center; gap:12px;}
+  header.topbar .role-tag{
+    background:var(--accent); color:#fff; padding:2px 9px; border-radius:100px; font-size:11.5px;
+  }
+  header.topbar button{
+    background:transparent; border:1px solid #4c5a6e; color:#fff; padding:6px 12px;
+    border-radius:var(--radius); cursor:pointer; font-size:13px;
+  }
+  header.topbar button:hover{background:#2d3846;}
+
+  nav.tabs{
+    display:flex; gap:2px; background:var(--white); border-bottom:1px solid var(--line);
+    padding:0 24px; overflow-x:auto;
+  }
+  nav.tabs button{
+    background:none; border:none; padding:13px 16px; font-size:14px; color:var(--slate);
+    cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap;
+  }
+  nav.tabs button.active{color:var(--accent-dark); border-bottom-color:var(--accent); font-weight:600;}
+
+  main{max-width:1080px; margin:0 auto; padding:24px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .card{
+    background:var(--white); border:1px solid var(--line); border-radius:var(--radius);
+    padding:20px; margin-bottom:18px;
+  }
+  .card h2{margin:0 0 14px; font-size:16px; color:var(--ink);}
+  .card h3{margin:0 0 4px; font-size:14.5px;}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th, td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top;}
+  th{color:var(--slate); font-weight:600; font-size:12.5px; text-transform:uppercase; letter-spacing:.03em;}
+
+  .badge{
+    display:inline-block; padding:2px 9px; border-radius:100px; font-size:12px; font-weight:600;
+  }
+  .badge.Pending{background:#fbf0d9; color:var(--pending);}
+  .badge.Approved{background:#dcf0e3; color:var(--ok);}
+  .badge.Scheduled{background:#dbe7f7; color:var(--accent-dark);}
+  .badge.In-Use{background:#e1e9fb; color:#2c3e91;}
+  .badge.Completed{background:#e5e8ee; color:#3a4250;}
+  .badge.Rejected{background:#f8dcda; color:var(--danger);}
+  .badge.Cancelled{background:#eee; color:#888;}
+  .badge.active{background:#dcf0e3; color:var(--ok);}
+  .badge.maintenance{background:#fbf0d9; color:var(--pending);}
+  .badge.inactive{background:#eee; color:#888;}
+
+  label{display:block; font-size:13px; color:var(--slate); margin:10px 0 4px;}
+  input, select, textarea{
+    width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:var(--radius);
+    font-size:14px; font-family:inherit; background:#fff;
+  }
+  textarea{min-height:70px; resize:vertical;}
+
+  .btn{
+    display:inline-block; padding:8px 14px; border-radius:var(--radius); border:1px solid transparent;
+    font-size:13.5px; cursor:pointer; font-weight:600;
+  }
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-primary:hover{background:var(--accent-dark);}
+  .btn-outline{background:#fff; border-color:var(--line); color:var(--ink);}
+  .btn-outline:hover{background:#f1f3f6;}
+  .btn-ok{background:var(--ok); color:#fff;}
+  .btn-danger{background:var(--danger); color:#fff;}
+  .btn-sm{padding:5px 10px; font-size:12.5px; margin-right:5px; margin-bottom:4px;}
+
+  .msg{padding:10px 12px; border-radius:var(--radius); font-size:13.5px; margin-bottom:14px;}
+  .msg.error{background:#fbe4e2; color:var(--danger); border:1px solid #f0bcb8;}
+  .msg.ok{background:#e2f3e8; color:var(--ok); border:1px solid #bfe3cc;}
+
+  .auth-wrap{max-width:380px; margin:60px auto;}
+  .auth-wrap .card{padding:28px;}
+  .auth-wrap h1{font-size:19px; margin:0 0 4px;}
+  .auth-wrap p.sub{color:var(--slate); font-size:13.5px; margin:0 0 18px;}
+  .switch{font-size:13px; color:var(--slate); margin-top:12px; text-align:center;}
+  .switch a{color:var(--accent); cursor:pointer; text-decoration:none;}
+
+  .empty{color:var(--slate); font-size:13.5px; padding:14px 0;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  @media (max-width:640px){.grid2{grid-template-columns:1fr;}}
+
+  code.small{background:#eef1f5; padding:1px 5px; border-radius:4px; font-size:12px;}
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div id="authScreen" class="auth-wrap">
+  <div class="card">
+    <h1 id="authTitle">Sign in</h1>
+    <p class="sub">Facility Reservation &amp; Approval System</p>
+    <div id="authMsg"></div>
+
+    <div id="fullNameField" style="display:none;">
+      <label>Full name</label>
+      <input id="fullNameInput" type="text" placeholder="Juan Dela Cruz" />
+    </div>
+    <label>Email</label>
+    <input id="emailInput" type="email" placeholder="you@example.com" />
+    <label>Password</label>
+    <input id="passwordInput" type="password" placeholder="••••••••" />
+
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" id="authSubmitBtn" style="width:100%;">Sign in</button>
+    </div>
+    <div class="switch">
+      <span id="switchText">No account yet?</span>
+      <a id="switchLink">Create one</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div id="appShell" style="display:none;">
+  <header class="topbar">
+    <div class="brand">Facility Reservation System</div>
+    <div class="who">
+      <span id="userName"></span>
+      <span class="role-tag" id="userRole"></span>
+      <button id="signOutBtn">Sign out</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs"></nav>
+
+  <main>
+    <div id="globalMsg"></div>
+
+    <!-- Facilities -->
+    <section class="view" id="view-facilities">
+      <div class="card">
+        <h2>Facilities</h2>
+        <table>
+          <thead><tr><th>Name</th><th>Location</th><th>Status</th><th></th></tr></thead>
+          <tbody id="facilitiesTable"></tbody>
+        </table>
+      </div>
+      <div class="card" id="adminFacilityForm" style="display:none;">
+        <h2>Add facility</h2>
+        <div class="grid2">
+          <div><label>Name</label><input id="newFacName" /></div>
+          <div><label>Location</label><input id="newFacLocation" /></div>
+        </div>
+        <label>Description</label>
+        <textarea id="newFacDesc"></textarea>
+        <div style="margin-top:12px;"><button class="btn btn-primary" id="addFacilityBtn">Add facility</button></div>
+      </div>
+    </section>
+
+    <!-- Submit Reservation (Requester) -->
+    <section class="view" id="view-submit">
+      <div class="card">
+        <h2>Submit a reservation request</h2>
+        <label>Facility</label>
+        <select id="resFacility"></select>
+        <div class="grid2">
+          <div><label>Start</label><input id="resStart" type="datetime-local" /></div>
+          <div><label>End</label><input id="resEnd" type="datetime-local" /></div>
+        </div>
+        <label>Purpose</label>
+        <textarea id="resPurpose" placeholder="e.g. Departmental meeting"></textarea>
+        <div style="margin-top:12px;"><button class="btn btn-primary" id="submitResBtn">Submit request</button></div>
+      </div>
+    </section>
+
+    <!-- My Reservations (Requester) -->
+    <section class="view" id="view-myres">
+      <div class="card">
+        <h2>My reservations</h2>
+        <table>
+          <thead><tr><th>Facility</th><th>Schedule</th><th>Purpose</th><th>Status</th><th></th></tr></thead>
+          <tbody id="myResTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Approvals (Admin) -->
+    <section class="view" id="view-approvals">
+      <div class="card">
+        <h2>Reservation approvals</h2>
+        <table>
+          <thead><tr><th>Requester</th><th>Facility</th><th>Schedule</th><th>Status</th><th></th></tr></thead>
+          <tbody id="approvalsTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Operations (Staff) -->
+    <section class="view" id="view-ops">
+      <div class="card">
+        <h2>Facility usage &amp; completion</h2>
+        <table>
+          <thead><tr><th>Requester</th><th>Facility</th><th>Schedule</th><th>Status</th><th></th></tr></thead>
+          <tbody id="opsTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Audit Log (Admin) -->
+    <section class="view" id="view-audit">
+      <div class="card">
+        <h2>Audit log</h2>
+        <table>
+          <thead><tr><th>When</th><th>Action</th><th>Table</th><th>Details</th></tr></thead>
+          <tbody id="auditTable"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* =====================================================================
+   CONFIG — replace with your own Supabase project values
+   ===================================================================== */
+const SUPABASE_URL = "https://rdjehivvgzrgkxhfjdet.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_3Dpx4ZAIxCEzlDL-06J94w_7V7sW3mR";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let session = null;
+let profile = null; // { id, full_name, role }
+let isSignUpMode = false;
+
+/* ---------------------- AUTH UI ---------------------- */
+const authScreen = document.getElementById('authScreen');
+const appShell = document.getElementById('appShell');
+const authMsg = document.getElementById('authMsg');
+
+document.getElementById('switchLink').onclick = () => {
+  isSignUpMode = !isSignUpMode;
+  document.getElementById('authTitle').textContent = isSignUpMode ? 'Create account' : 'Sign in';
+  document.getElementById('authSubmitBtn').textContent = isSignUpMode ? 'Create account' : 'Sign in';
+  document.getElementById('fullNameField').style.display = isSignUpMode ? 'block' : 'none';
+  document.getElementById('switchText').textContent = isSignUpMode ? 'Already have an account?' : 'No account yet?';
+  document.getElementById('switchLink').textContent = isSignUpMode ? 'Sign in' : 'Create one';
+};
+
+document.getElementById('authSubmitBtn').onclick = async () => {
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+  authMsg.innerHTML = '';
+  if (!email || !password) { showAuthError('Email and password are required.'); return; }
+
+  if (isSignUpMode) {
+    const fullName = document.getElementById('fullNameInput').value.trim() || email;
+    const { error } = await sb.auth.signUp({
+      email, password,
+      options: { data: { full_name: fullName, role: 'requester' } }
+    });
+    if (error) return showAuthError(error.message);
+    showAuthOk('Account created. You can sign in now (check email confirmation if enabled).');
+  } else {
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) return showAuthError(error.message);
+    await afterLogin();
+  }
+};
+
+function showAuthError(m){ authMsg.innerHTML = `<div class="msg error">${m}</div>`; }
+function showAuthOk(m){ authMsg.innerHTML = `<div class="msg ok">${m}</div>`; }
+
+document.getElementById('signOutBtn').onclick = async () => {
+  await sb.auth.signOut();
+  location.reload();
+};
+
+/* ---------------------- BOOT ---------------------- */
+(async function init(){
+  const { data } = await sb.auth.getSession();
+  if (data.session) { session = data.session; await afterLogin(); }
+})();
+
+async function afterLogin(){
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+  const { data: p, error } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  if (error) { showAuthError('Could not load profile: ' + error.message); return; }
+  profile = p;
+  authScreen.style.display = 'none';
+  appShell.style.display = 'block';
+  document.getElementById('userName').textContent = profile.full_name;
+  document.getElementById('userRole').textContent = profile.role.toUpperCase();
+  buildTabsForRole();
+  loadFacilities();
+}
+
+/* ---------------------- TABS / ROLE-BASED NAV ---------------------- */
+const TAB_DEFS = {
+  admin:     [['facilities','Facilities'],['approvals','Approvals'],['audit','Audit Log']],
+  staff:     [['facilities','Facilities'],['ops','Operations']],
+  requester: [['facilities','Facilities'],['submit','New Request'],['myres','My Reservations']]
+};
+
+function buildTabsForRole(){
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  const defs = TAB_DEFS[profile.role] || [];
+  defs.forEach(([key,label], i) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.dataset.view = key;
+    if (i===0) b.classList.add('active');
+    b.onclick = () => switchView(key);
+    tabs.appendChild(b);
+  });
+  document.getElementById('adminFacilityForm').style.display = profile.role === 'admin' ? 'block' : 'none';
+  if (defs.length) switchView(defs[0][0]);
+}
+
+function switchView(key){
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.view === key));
+  document.querySelectorAll('main .view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + key).classList.add('active');
+  if (key === 'submit') loadFacilityOptions();
+  if (key === 'myres') loadMyReservations();
+  if (key === 'approvals') loadApprovals();
+  if (key === 'ops') loadOps();
+  if (key === 'audit') loadAudit();
+}
+
+function flash(msg, type='ok'){
+  const el = document.getElementById('globalMsg');
+  el.innerHTML = `<div class="msg ${type}">${msg}</div>`;
+  setTimeout(()=>{ el.innerHTML=''; }, 4000);
+}
+function badge(status){ return `<span class="badge ${status.replace(' ','-')}">${status}</span>`; }
+function fmt(ts){ return new Date(ts).toLocaleString(); }
+
+/* ---------------------- FACILITIES ---------------------- */
+async function loadFacilities(){
+  const { data, error } = await sb.from('facilities').select('*').order('name');
+  if (error) return flash(error.message, 'error');
+  const tbody = document.getElementById('facilitiesTable');
+  tbody.innerHTML = data.length ? '' : `<tr><td colspan="4" class="empty">No facilities yet.</td></tr>`;
+  data.forEach(f => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><strong>${f.name}</strong><br><span style="color:#6b7280;font-size:12px;">${f.description||''}</span></td>
+      <td>${f.location||'-'}</td>
+      <td>${badge(f.status)}</td>
+      <td>${profile.role==='admin' ? adminFacilityActions(f) : ''}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function adminFacilityActions(f){
+  const next = f.status === 'active' ? 'maintenance' : 'active';
+  return `<button class="btn btn-outline btn-sm" onclick="setFacilityStatus('${f.id}','${next}')">Mark ${next}</button>`;
+}
+
+async function setFacilityStatus(id, status){
+  const { error } = await sb.from('facilities').update({ status }).eq('id', id);
+  if (error) return flash(error.message, 'error');
+  flash('Facility status updated.');
+  loadFacilities();
+}
+
+document.getElementById('addFacilityBtn').onclick = async () => {
+  const name = document.getElementById('newFacName').value.trim();
+  const location = document.getElementById('newFacLocation').value.trim();
+  const description = document.getElementById('newFacDesc').value.trim();
+  if (!name) return flash('Facility name is required.', 'error');
+  const { error } = await sb.from('facilities').insert({ name, location, description });
+  if (error) return flash(error.message, 'error');
+  flash('Facility added.');
+  document.getElementById('newFacName').value='';
+  document.getElementById('newFacLocation').value='';
+  document.getElementById('newFacDesc').value='';
+  loadFacilities();
+};
+
+/* ---------------------- SUBMIT RESERVATION ---------------------- */
+async function loadFacilityOptions(){
+  const { data, error } = await sb.from('facilities').select('*').eq('status','active').order('name');
+  if (error) return flash(error.message, 'error');
+  const sel = document.getElementById('resFacility');
+  sel.innerHTML = data.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+}
+
+document.getElementById('submitResBtn').onclick = async () => {
+  const facility_id = document.getElementById('resFacility').value;
+  const start_time = document.getElementById('resStart').value;
+  const end_time = document.getElementById('resEnd').value;
+  const purpose = document.getElementById('resPurpose').value.trim();
+  if (!facility_id || !start_time || !end_time || !purpose) return flash('All fields are required.', 'error');
+  if (new Date(start_time) >= new Date(end_time)) return flash('Start time must be before end time.', 'error');
+
+  const { error } = await sb.from('reservations').insert({
+    facility_id, requester_id: profile.id, purpose,
+    start_time: new Date(start_time).toISOString(),
+    end_time: new Date(end_time).toISOString(),
+    status: 'Pending'
+  });
+  if (error) return flash(error.message, 'error');
+  flash('Reservation submitted as Pending.');
+  document.getElementById('resPurpose').value = '';
+};
+
+/* ---------------------- MY RESERVATIONS (Requester) ---------------------- */
+async function loadMyReservations(){
+  const { data, error } = await sb.from('reservations')
+    .select('*, facilities(name)')
+    .eq('requester_id', profile.id)
+    .order('created_at', { ascending:false });
+  if (error) return flash(error.message, 'error');
+  const tbody = document.getElementById('myResTable');
+  tbody.innerHTML = data.length ? '' : `<tr><td colspan="5" class="empty">No reservations yet.</td></tr>`;
+  data.forEach(r => {
+    const canCancel = r.status === 'Pending';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.facilities?.name||'-'}</td>
+      <td>${fmt(r.start_time)}<br>&rarr; ${fmt(r.end_time)}</td>
+      <td>${r.purpose}</td>
+      <td>${badge(r.status)}</td>
+      <td>${canCancel ? `<button class="btn btn-outline btn-sm" onclick="cancelReservation('${r.id}')">Cancel</button>` : ''}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function cancelReservation(id){
+  const { error } = await sb.from('reservations').update({ status:'Cancelled' }).eq('id', id);
+  if (error) return flash(error.message, 'error');
+  flash('Reservation cancelled.');
+  loadMyReservations();
+}
+
+/* ---------------------- APPROVALS (Admin) ---------------------- */
+async function loadApprovals(){
+  const { data, error } = await sb.from('reservations')
+    .select('*, facilities(name), profiles!reservations_requester_id_fkey(full_name)')
+    .order('created_at', { ascending:false });
+  if (error) return flash(error.message, 'error');
+  const tbody = document.getElementById('approvalsTable');
+  tbody.innerHTML = data.length ? '' : `<tr><td colspan="5" class="empty">No requests yet.</td></tr>`;
+  data.forEach(r => {
+    const tr = document.createElement('tr');
+    const actions = r.status === 'Pending'
+      ? `<button class="btn btn-ok btn-sm" onclick="decide('${r.id}','Approved')">Approve</button>
+         <button class="btn btn-danger btn-sm" onclick="decide('${r.id}','Rejected')">Reject</button>`
+      : (r.status === 'Approved'
+          ? `<button class="btn btn-outline btn-sm" onclick="decide('${r.id}','Scheduled')">Confirm Schedule</button>`
+          : '');
+    tr.innerHTML = `<td>${r.profiles?.full_name||'-'}</td>
+      <td>${r.facilities?.name||'-'}</td>
+      <td>${fmt(r.start_time)}<br>&rarr; ${fmt(r.end_time)}</td>
+      <td>${badge(r.status)}</td>
+      <td>${actions}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function decide(id, status){
+  const { error } = await sb.from('reservations')
+    .update({ status, decided_by: profile.id, decided_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) return flash(error.message, 'error');
+  flash(`Reservation set to ${status}.`);
+  loadApprovals();
+}
+
+/* ---------------------- OPERATIONS (Staff) ---------------------- */
+async function loadOps(){
+  const { data, error } = await sb.from('reservations')
+    .select('*, facilities(name), profiles!reservations_requester_id_fkey(full_name)')
+    .in('status', ['Scheduled','In Use','Completed'])
+    .order('start_time', { ascending:true });
+  if (error) return flash(error.message, 'error');
+  const tbody = document.getElementById('opsTable');
+  tbody.innerHTML = data.length ? '' : `<tr><td colspan="5" class="empty">Nothing scheduled yet.</td></tr>`;
+  data.forEach(r => {
+    let actions = '';
+    if (r.status === 'Scheduled') actions = `<button class="btn btn-outline btn-sm" onclick="setStatus('${r.id}','In Use')">Mark In Use</button>`;
+    if (r.status === 'In Use') actions = `<button class="btn btn-ok btn-sm" onclick="setStatus('${r.id}','Completed')">Mark Completed</button>`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.profiles?.full_name||'-'}</td>
+      <td>${r.facilities?.name||'-'}</td>
+      <td>${fmt(r.start_time)}<br>&rarr; ${fmt(r.end_time)}</td>
+      <td>${badge(r.status)}</td>
+      <td>${actions}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function setStatus(id, status){
+  const { error } = await sb.from('reservations').update({ status }).eq('id', id);
+  if (error) return flash(error.message, 'error');
+  flash(`Marked as ${status}.`);
+  loadOps();
+}
+
+/* ---------------------- AUDIT LOG (Admin) ---------------------- */
+async function loadAudit(){
+  const { data, error } = await sb.from('audit_logs').select('*').order('created_at', { ascending:false }).limit(100);
+  if (error) return flash(error.message, 'error');
+  const tbody = document.getElementById('auditTable');
+  tbody.innerHTML = data.length ? '' : `<tr><td colspan="4" class="empty">No audit entries yet.</td></tr>`;
+  data.forEach(a => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${fmt(a.created_at)}</td><td>${a.action}</td><td>${a.table_name}</td>
+      <td><code class="small">${JSON.stringify(a.details)}</code></td>`;
+    tbody.appendChild(tr);
+  });
+}
+</script>
+</body>
+</html>
